@@ -53,6 +53,18 @@ try {
   await A('setRound', { n: 4 });
   await M('Cal', 'start', { id: t1 });
   await M('Cal', 'submit', { id: t1, round: 4, answers: { demoReady: 'Yes', built: 'X', strongest: 's', weakest: 'w', rating: '4', why: 'y' } });
+  if (EVENT.judging.enabled === false) {
+    let noPicks = false; try { await M('Cal', 'savePicks', { first: { teamId: t1, why: 'best' } }); } catch { noPicks = true; }
+    ok('judging off: top-two picks are refused', noPicks);
+    let noStage = false; try { await A('setStage', { stage: 'finals' }); } catch { noStage = true; }
+    ok('judging off: morning stages are refused', noStage);
+    await M('Ben', 'followUp', { id: t1, note: 'Sensor fixed, demo works' });
+    const fu0 = await M('Cal', 'team', { id: t1 });
+    ok('follow-up notes are shared with other mentors', fu0.followups.length === 1);
+    const bk0 = await A('backup');
+    ok('backup works', (await A('restore', { backup: bk0, confirm: 'RESTORE' })).counts.checkins >= 3);
+    throw 'done';
+  }
   await M('Cal', 'savePicks', { first: { teamId: t1, why: 'best' } });
   await M('Ana', 'savePicks', { first: { teamId: t1, why: 'saw them at check-in 1' } });
   ok('top-two picks can be any team you checked tonight, not just the final round', (await M('Ana', 'picks')).first?.teamId === t1);
@@ -89,7 +101,7 @@ try {
   const rr = await A('restore', { backup: bk, confirm: 'RESTORE' });
   ok('backup and restore round-trip', rr.counts.scores === 2 && (await A('results')).rows.find(r => r.id === t1).judges === 2);
 } catch (e) {
-  console.error('✗', e.message); failed++;
+  if (e !== 'done') { console.error('✗', e.message); failed++; }
 } finally {
   server.kill();
   rmSync(dir, { recursive: true, force: true });
