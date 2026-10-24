@@ -1,4 +1,4 @@
-import { rpc, esc, fmtTime, toast, tableLabel, FORMS, RUBRIC, RUBRIC_TOTAL, CONFIG } from './shared.js';
+import { rpc, esc, fmtTime, toast, tableLabel, FORMS, RUBRIC, RUBRIC_TOTAL, CONFIG, JUDGING } from './shared.js';
 
 const EV = CONFIG.event, ST = CONFIG.judging.stages;
 const SLUG = String(EV.name || 'event').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'event';
@@ -49,7 +49,7 @@ async function viewLive() {
     const t = d.totals;
     const mentorOpts = d.mentors.filter(m => m.active).map(m => `<option value="${esc(m.id)}">${esc(m.name)}</option>`).join('');
     $main.innerHTML = `
-      ${d.demo ? `<div class="notice info"><b>Public demo.</b> Click anything: open rounds, switch to judging, edit teams. Everything resets to a fresh event every hour. Backup and restore are switched off.</div>` : ''}
+      ${d.demo ? `<div class="notice info"><b>Public demo.</b> Click anything: open rounds${JUDGING ? ', switch to judging' : ''}, edit teams. Everything resets to a fresh event every hour. Backup and restore are switched off.</div>` : ''}
       ${d.config.practice && !d.demo ? `<div class="notice warn row-inline" style="justify-content:space-between"><span><b>Practice data is loaded.</b> Mentors see a "Practice run" banner. Before the event, go to Setup → Reset event data.</span><a class="btn btn-sm" href="#/setup">Setup</a></div>` : ''}
       <div class="row-inline" style="justify-content:space-between">
         <h1 class="display">Live</h1>
@@ -72,7 +72,7 @@ async function viewLive() {
             <span class="bar"><i style="width:${t.teams ? Math.round(r.done / t.teams * 100) : 0}%"></i></span>
           </button>`).join('')}</div>
       </section>
-      <section>
+      ${JUDGING ? `<section>
         <div class="row-inline" style="justify-content:space-between;margin-bottom:10px"><span class="eyebrow">Morning judging · click to switch every mentor's phone</span>
           <a class="link small" href="#/scores">See scores →</a></div>
         <div class="grid g4">${[
@@ -85,7 +85,7 @@ async function viewLive() {
             <span class="eyebrow">${title}${d.config.stage === k ? ' · LIVE' : ''}</span>
             <span class="t">${time}</span><span class="small">${sub}</span>
           </button>`).join('')}</div>
-      </section>
+      </section>` : ''}
       <div class="grid g2">
         <section class="card">
           <h2>Needs attention · ${d.attention.length}</h2>
@@ -375,11 +375,11 @@ async function viewTeams(id) {
     <section class="card" style="display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap;align-items:center">
       <div><div class="mono small faint">${esc(team.code)} · ${team.table_no ? `<b style="color:var(--orange-deep)">${esc(tableLabel(team.table_no))}</b> · ` : ''}${[esc(team.type), team.members.map(m => esc(m.name)).join(', '), esc([...new Set(team.members.map(m => m.college).filter(Boolean))].join(' / '))].filter(Boolean).join(' · ')}</div>
         <h2 style="font-size:2rem">${esc(team.name)}${team.hidden ? ' <span class="tag" style="font-size:.8rem;vertical-align:middle">🚫 hidden from mentors</span>' : ''}</h2>
-        <div class="small muted">${s.points} pts · demo-ready ${esc(s.demoReady || '–')} · ${s.mentorsSeen} different mentors · ${s.picks} top-two pick${s.picks === 1 ? '' : 's'}</div>
+        <div class="small muted">${JUDGING ? `${s.points} pts · demo-ready ${esc(s.demoReady || '–')} · ${s.mentorsSeen} different mentors · ${s.picks} top-two pick${s.picks === 1 ? '' : 's'}` : `${s.mentorsSeen} different mentors · showcase-ready ${esc(s.demoReady || '–')}`}</div>
         ${s.pickNotes.map(p => `<div class="small">★ ${esc(p.by || '')}: “${esc(p.why)}”</div>`).join('')}</div>
       <div class="row-inline">
-        <button class="btn btn-sm${s.starred ? ' btn-primary' : ''}" id="st">${s.starred ? '★ Finalist' : '☆ Mark as finalist'}</button>
-        <button class="btn btn-sm" id="cb">Copy judge brief</button>
+        ${JUDGING ? `<button class="btn btn-sm${s.starred ? ' btn-primary' : ''}" id="st">${s.starred ? '★ Finalist' : '☆ Mark as finalist'}</button>
+        <button class="btn btn-sm" id="cb">Copy judge brief</button>` : ''}
         <button class="btn btn-sm" id="ed">Edit team</button></div>
     </section>
     <section class="card" style="margin-top:16px;display:flex;flex-direction:column;gap:8px">
@@ -644,14 +644,14 @@ async function viewSetup() {
       <section class="card" style="display:flex;flex-direction:column;gap:12px">
         <span class="eyebrow">Step 4 · Safety and wrap-up</span>
         <label class="field"><span class="label">Organizer phone (shown on every mentor screen)</span><input class="input sm" id="phone" value="${esc(c.organizerPhone)}" placeholder="+91 …"></label>
-        <label class="field"><span class="label">Top-two picks lock at (label shown to mentors)</span><input class="input sm" id="lockAt" value="${esc(c.picksLockAt)}"></label>
+        ${JUDGING ? `<label class="field"><span class="label">Top-two picks lock at (label shown to mentors)</span><input class="input sm" id="lockAt" value="${esc(c.picksLockAt)}"></label>` : ''}
         <button class="btn btn-sm" id="saveSafety" style="align-self:flex-start">Save</button>
         <hr style="border:0;border-top:2px dashed var(--line);width:100%">
         <div class="row-inline"><button class="btn btn-sm btn-primary" id="csv">Download all check-ins (CSV)</button>
           <span class="spacer"></span><button class="link small" id="reset" style="color:var(--red)">Reset event data…</button></div>
         <hr style="border:0;border-top:2px dashed var(--line);width:100%">
         <span class="label">Backup and restore</span>
-        <p class="small muted" style="margin:0">A backup is one file with everything: teams, mentors, check-ins, help requests, picks, nominations, scores and settings. Take one before each big step (e.g. before opening judging). Keep it private: it lets mentors sign in.</p>
+        <p class="small muted" style="margin:0">A backup is one file with everything: teams, mentors, check-ins, help requests, picks, nominations, scores and settings. Take one before each big step (e.g. before opening ${JUDGING ? 'judging' : 'a round'}). Keep it private: it lets mentors sign in.</p>
         <div class="row-inline"><button class="btn btn-sm btn-primary" id="bk">Download backup</button>
           <button class="btn btn-sm" id="rs">Restore from backup…</button>
           <input type="file" id="rsfile" accept=".json,application/json" hidden></div>
@@ -692,10 +692,10 @@ async function viewSetup() {
     const rounds = c.rounds.map((r, i) => ({ title: $main.querySelector(`[data-rt="${i}"]`).value, time: $main.querySelector(`[data-rh="${i}"]`).value }));
     await api('saveConfig', { rounds }).then(() => toast('Rounds saved')).catch(e => toast(e.message, true));
   });
-  const invite = `${EV.name} · Mentor Desk\nOpen on your phone: ${link}${d.codeRequired ? `\nEvent code: ${d.mentorCode}` : ''}\nSet up your card once: it's for mentoring tonight and judging in the morning. Read the short briefing before you start.`;
+  const invite = `${EV.name} · Mentor Desk\nOpen on your phone: ${link}${d.codeRequired ? `\nEvent code: ${d.mentorCode}` : ''}\nSet up your card once${JUDGING ? ": it's for mentoring tonight and judging in the morning" : ''}. Read the short briefing before you start.`;
   on('copyLink', async () => { try { await navigator.clipboard.writeText(invite); toast('Invite copied. Paste it in the mentors group.'); } catch { prompt('Copy this:', invite); } });
   on('saveSafety', async () => {
-    await api('saveConfig', { organizerPhone: document.getElementById('phone').value, picksLockAt: document.getElementById('lockAt').value })
+    await api('saveConfig', { organizerPhone: document.getElementById('phone').value, picksLockAt: document.getElementById('lockAt')?.value })
       .then(() => toast('Saved')).catch(e => toast(e.message, true));
   });
   on('csv', async () => { const r = await api('exportCsv').catch(e => toast(e.message, true)); if (r) download(`${SLUG}-checkins.csv`, r.csv); });
@@ -747,14 +747,16 @@ async function viewSetup() {
 
 // ---------------- router ----------------
 
+if (!JUDGING) document.querySelectorAll('.nav a[data-p="finalists"], .nav a[data-p="scores"]').forEach(a => a.remove());
+
 async function route() {
   clearInterval(timer);
   if (!pw) return gate();
   $top.hidden = false;
   const [, page = 'live', id] = (location.hash || '#/live').split('/');
   for (const a of document.querySelectorAll('.nav a')) a.classList.toggle('on', a.dataset.p === page);
-  if (page === 'finalists') return viewFinalists();
-  if (page === 'scores') return viewScores();
+  if (page === 'finalists' && JUDGING) return viewFinalists();
+  if (page === 'scores' && JUDGING) return viewScores();
   if (page === 'mentors') return viewMentorStats();
   if (page === 'teams') return viewTeams(id);
   if (page === 'setup') return viewSetup();

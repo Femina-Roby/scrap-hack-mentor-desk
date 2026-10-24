@@ -2,6 +2,9 @@
 import CONFIG from '../event.config.js';
 export { CONFIG };
 
+// judging.enabled: false turns off top-two picks, finalists, booths and scoring (check-ins and help only).
+export const JUDGING = CONFIG.judging?.enabled !== false;
+
 // Brand colours from the config (tints are mixed from them).
 {
   const t = CONFIG.theme || {}, root = document.documentElement.style;

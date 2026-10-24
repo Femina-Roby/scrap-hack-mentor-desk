@@ -1,4 +1,4 @@
-import { rpc, esc, fmtTime, toast, tableLabel, FORMS, SKILLS, visible, ICON_SEARCH, RUBRIC, RUBRIC_TOTAL, levels, CONFIG } from './shared.js';
+import { rpc, esc, fmtTime, toast, tableLabel, FORMS, SKILLS, visible, ICON_SEARCH, RUBRIC, RUBRIC_TOTAL, levels, CONFIG, JUDGING } from './shared.js';
 
 const EV = CONFIG.event, COPY = CONFIG.copy;
 document.title = `${EV.name} · ${EV.tagline || 'Mentor desk'}`;
@@ -117,7 +117,7 @@ async function viewJoin(edit = false) {
         <input class="input" name="name" autocomplete="name" value="${esc(p.name)}" required></label>
       <label class="field"><span class="label">${esc(COPY.collegeLabel || "College you're connected to")} <span class="faint small">(optional)</span></span>
         <input class="input" name="college" placeholder="e.g. your alma mater" value="${esc(p.college)}">
-        <span class="hint">Teams from this college are skipped for you, to keep judging fair. Leave blank if none.</span></label>
+        <span class="hint">Teams from this college are skipped for you, ${JUDGING ? 'to keep judging fair' : 'so every team gets fresh eyes'}. Leave blank if none.</span></label>
       <div class="field"><span class="label">What can you help with?</span>
         <div class="chips" id="skills">${SKILLS.map(s => `<button type="button" class="chip${p.skills.includes(s) ? ' on' : ''}" aria-pressed="${p.skills.includes(s)}">${s}</button>`).join('')}</div>
         <span class="hint">When a mentor flags a team that needs one of these, it shows at the top of your Help tab.</span></div>
@@ -175,11 +175,11 @@ async function viewHome() {
   try { h = await api('home'); } catch (e) { return fail(e); }
   me = h.me; header(); setHelpBadge(h.help);
   practiceBanner(h.practice, h.demo);
-  if (h.judging) return viewJudgeHome(h);
+  if (JUDGING && h.judging) return viewJudgeHome(h);
   const s = h.stats;
   if (!h.round) {
     $main.innerHTML = `
-      <div class="card blue round-card"><span class="eyebrow">Before boarding</span>
+      <div class="card blue round-card"><span class="eyebrow">Before kickoff</span>
         <div class="title">Check-ins open soon</div>
         <p>${esc(COPY.waiting)}</p></div>
       <p class="muted center">Meanwhile, walk around and say hi to the teams.</p>`;
@@ -194,7 +194,7 @@ async function viewHome() {
       <div class="stats"><span><b>You: ${s.mine}</b> of ${s.target} teams</span><span>Everyone: <b>${s.all} / ${s.teams}</b></span></div>
       <div class="bar"><i style="width:${pct}%"></i></div>
     </section>
-    ${h.picks && !h.picks.locked ? `<a class="card" href="#/picks" style="text-decoration:none;display:flex;justify-content:space-between;align-items:center;gap:12px;border-color:var(--orange);box-shadow:4px 4px 0 var(--orange)">
+    ${JUDGING && h.picks && !h.picks.locked ? `<a class="card" href="#/picks" style="text-decoration:none;display:flex;justify-content:space-between;align-items:center;gap:12px;border-color:var(--orange);box-shadow:4px 4px 0 var(--orange)">
       <div><div class="eyebrow">Before ${esc(h.picks.lockAt)}</div><div style="font-weight:700;font-size:1.1rem">Pick your top two</div>
       <div class="small muted">${h.picks.saved ? `${h.picks.saved} of 2 saved · tap to change` : 'Your top two for the shortlist'}</div></div><span style="font-size:1.6rem">→</span></a>` : ''}
     <div class="search">${ICON_SEARCH}
@@ -428,7 +428,7 @@ async function viewForm(id, round) {
         store.set(draftKey, null);
         lastQuery = '';
         toast(`Saved · ${team.name}`);
-        go(round === 4 ? '#/picks' : '#/');
+        go(round === 4 && JUDGING ? '#/picks' : '#/');
       } catch (e) {
         toast(e.network ? 'Not sent. Your answers are kept, try again.' : e.message, true);
         btn.disabled = false; btn.textContent = 'Submit check-in';
@@ -621,7 +621,7 @@ async function viewBrief() {
   $main.innerHTML = `
     <div>
       <div class="route">${esc([EV.route, EV.hours].filter(Boolean).join(' · '))}</div>
-      <h1 class="out-text" style="font-size:clamp(2.4rem,11vw,3.2rem);margin-top:6px">Help first.<br>Judge second.</h1>
+      <h1 class="out-text" style="font-size:clamp(2.4rem,11vw,3.2rem);margin-top:6px">${JUDGING ? 'Help first.<br>Judge second.' : 'Help first.<br>Hands off.'}</h1>
       <p class="muted" style="margin-top:10px">${esc(COPY.briefLead)}</p>
     </div>
 
@@ -640,23 +640,23 @@ async function viewBrief() {
 
     <section class="card" style="display:flex;flex-direction:column;gap:16px">
       <span class="eyebrow">House rules</span>
-      ${step(1, 'Fresh eyes', 'Each round you check teams you haven’t seen yet, so every team gets several independent views before judging. The app enforces it.')}
+      ${step(1, 'Fresh eyes', `Each round you check teams you haven’t seen yet, so every team gets several independent views${JUDGING ? ' before judging' : ''}. The app enforces it.`)}
       ${step(2, 'No conflicts', 'Skip teams you know personally or from your alma mater. Tap <b>I know this team personally</b>.')}
       ${step(3, 'Your target', 'It is on your home screen. It drops as more mentors join.')}
       ${step(4, 'Stuck team?', 'Teams don’t use this app, you raise it for them: tap <b>Ask for help</b> on the team. Mentors with that skill see it first. If no one picks it up in 15 minutes it turns red and an organizer assigns someone.')}
-      ${step(5, 'Solo builders', 'have half the hands. Judge progress for the team size.')}
-      ${step(6, 'Keep it fair', 'You see what a team said earlier, never other mentors’ ratings. Don’t tell teams how you rated them or hint at the shortlist.')}
+      ${step(5, 'Solo builders', `have half the hands. ${JUDGING ? 'Judge' : 'Read'} progress for the team size.`)}
+      ${step(6, 'Keep it fair', JUDGING ? 'You see what a team said earlier, never other mentors’ ratings. Don’t tell teams how you rated them or hint at the shortlist.' : 'You see what a team said earlier, never other mentors’ ratings. Don’t tell teams how you rated them.')}
     </section>
 
     <div class="notice safety"><b>Safety or medical?</b> Don't type it in the app. Call ${phoneLink(boot.organizerPhone)} right away.</div>
 
-    <section class="card" style="border-color:var(--orange);box-shadow:4px 4px 0 var(--orange)">
+    ${JUDGING ? `<section class="card" style="border-color:var(--orange);box-shadow:4px 4px 0 var(--orange)">
       <span class="eyebrow">Before ${esc(boot.picksLockAt || CONFIG.judging.picksLockAt)}</span>
       <div style="font-weight:800;font-size:1.15rem;margin-top:4px">Pick your top two</div>
       <p class="small muted" style="margin-top:4px">From any team you checked tonight, choose your top two for the shortlist, with one line on why. This is the strongest signal we use.</p>
     </section>
 
-    ${morning()}
+    ${morning()}` : ''}
 
     <button class="btn btn-primary" id="gotit">${first ? "Got it, let's start" : 'Back to teams'}</button>`;
   document.getElementById('gotit').onclick = () => { store.set('md_briefed', '1'); go('#/'); };
@@ -824,11 +824,11 @@ async function route() {
   const [, page, a, b] = (location.hash || '#/').split('/');
   try {
     if (page === 'team') return await viewTeam(a);
-    if (page === 'judge') return await viewJudgeTeam(a);
+    if (page === 'judge' && JUDGING) return await viewJudgeTeam(a);
     if (page === 'form') return await viewForm(a, b);
     if (page === 'help') return await viewHelp();
     if (page === 'raise') return await viewRaise(a);
-    if (page === 'picks') return await viewPicks();
+    if (page === 'picks' && JUDGING) return await viewPicks();
     if (page === 'mine') return await viewMine();
     if (page === 'me') return await viewJoin(true);
     if (page === 'brief' || !store.get('md_briefed')) return await viewBrief();
